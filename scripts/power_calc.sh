@@ -18,7 +18,7 @@ if [ -n "${1}" ]; then
 fi
 
 i=${PBS_ARRAYID}
-splits=100
+splits=16
 
 Rscript \
 	power_calc.r \

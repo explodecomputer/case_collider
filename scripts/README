@@ -1,0 +1,4 @@
+to run
+
+parallel power_calc.sh ::: {1..16}
+Rscript aggregate.r
