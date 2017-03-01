@@ -38,17 +38,21 @@ simulate <- function(G, eff, prevalence, prop_discovered)
 	return(dat)
 }
 
-make_system <- function(nid, prev, h2phen, h2pred, vpred)
+make_system <- function(nid, prev, h2disease, h2pred, vpred)
 {
-	prs_phen <- rnorm(nid)
+	prs_disease <- rnorm(nid)
 	prs_pred <- rnorm(nid)
 	pred <- makePhen(sqrt(h2pred), prs_pred)
-	px <- prs_phen * sqrt(h2phen) + pred * sqrt(h2pred)
-	prob_disease <- gx_to_gp(px, var(px), 1-prev)
+	e <- rnorm(nid)
+	ve <- 1 - h2disease - vpred
+
+	px <- scale(prs_disease * sqrt(h2disease) + pred * sqrt(vpred) + e * sqrt(ve))
+	prob_disease <- gx_to_gp(px, 1, 1-prev)
 	disease <- rbinom(nid, 1, prob_disease)
 	dat <- data.frame(
 		disease=disease,
-		prs_disease=prs_phen,
+		prob_disease=prob_disease,
+		prs_disease=prs_disease,
 		pred=pred,
 		prs_pred=prs_pred
 	)
@@ -58,28 +62,11 @@ make_system <- function(nid, prev, h2phen, h2pred, vpred)
 do_test <- function(dat)
 {
 	dat <- filter(dat, disease==1)
-	a <- fastAssoc(dat$prs_disease, dat$pred)$pval
-	b <- fastAssoc(dat$prs_disease, dat$prs_pred)$pval
-	return(c(a, b))
-}
-
-
-
-cross_plot <- function(x, o, xlab="Values (low to high)", ylab="", title="", xname="GRS", oname="Disease")
-{
-
-	d <- data.frame(
-		value = c(range01(o), range01(x)),
-		key = c(rep(oname, length(o)), rep(xname, length(x))),
-		gr = rep(1:length(x), times=2)
-	)
-	d$key <- factor(d$key, levels=c(xname, oname))
-	ggplot(d, aes(x=value, y=key)) +
-	geom_line(aes(group=gr), alpha=0.1) +
-	geom_point(aes(colour=key)) +
-	labs(x=xlab,y=ylab,title=title) +
-	scale_colour_discrete(guide=FALSE) +
-	theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+	a <- fastAssoc(dat$prs_disease, dat$pred)
+	b <- fastAssoc(dat$prs_disease, dat$prs_pred)
+	ab <- rbind(as.data.frame(a), as.data.frame(b))
+	ab$model <- c("RF", "PRS of RF")
+	return(ab)
 }
 
 
@@ -96,19 +83,6 @@ makePhen <- function(effs, indep, vy=1, vx=rep(1, length(effs)), my=0)
 	return(y)
 }
 
-chooseEffects <- function(nsnp, totvar, sqrt=TRUE)
-{
-	eff <- rnorm(nsnp)
-	eff <- sign(eff) * eff^2
-	aeff <- abs(eff)
-	sc <- sum(aeff) / totvar
-	out <- eff / sc
-	if(sqrt)
-	{
-		out <- sqrt(abs(out)) * sign(out)
-	}
-	return(out)
-}
 
 fastAssoc <- function(y, x)
 {
@@ -133,78 +107,34 @@ fastAssoc <- function(y, x)
 	# pval <- pf(Fval, 1, n-2, lowe=F)
 	p <- pf(fval, 1, n-2, lowe=F)
 	return(list(
-		ahat=ahat, bhat=bhat, se=se, fval=fval, pval=p
+		ahat=ahat, bhat=bhat, se=se, fval=fval, pval=p, n=n
 	))
 }
 
-gwas <- function(y, g)
-{
-	out <- matrix(0, ncol(g), 5)
-	for(i in 1:ncol(g))
-	{
-		o <- fastAssoc(y, g[,i])
-		out[i, ] <- unlist(o)
-	}
-	out <- as.data.frame(out)
-	names(out) <- names(o)
-	return(out)
-}
-
-
-
-# do_test(a)
-
-# # simulate trait
-# # cov2 = u + e
-# # px = prs + cov1 + u + e 
-
-# nid <- 100000
-# prev <- 0.2
-# h2 <- 0.1
-# v1 <- 0.05
-# v2 <- 0.05
-# uv2 <- 0.05
-# up <- 0.05
-
-# prs <- rnorm(nid)
-# cov1 <- rnorm(nid)
-# u <- rnorm(nid)
-# cov2 <- makePhen(sqrt(uv2), u)
-# px <- prs * sqrt(h2) + cov1 * sqrt(v1) + u * sqrt(up)
-# prob_disease <- gx_to_gp(px, var(px), 1-prev)
-# disease <- rbinom(nid, 1, prob_disease)
-
-# summary(lm(cov1[disease==1] ~ cov2[disease==1]))
-# summary(lm(cov1[disease==1] ~ u[disease==1]))
-# summary(lm(cov1[disease==1] ~ prs[disease==1]))
-
-
-
-
-# a <- make_system(10000, 0.1, 0.1, 0.1, 0.1)
-# table(a$disease)
+#####
 
 param <- expand.grid(
 	sim = 1:100,
 	ncase = c(1000, 10000, 50000),
-	prev = c(0.01, 0.1),
+	prev = c(0.01, 0.1, 0.5),
 	h2phen = c(0.01, 0.1),
 	h2pred = c(0.01, 0.1),
-	vpred = c(0.01, 0.05),
-	pval_var = NA,
-	pval_prs = NA
+	vpred = c(0.01, 0.05)
 )
 param$nid <- param$ncase / param$prev
 
 set.seed(100)
+res <- list()
 for(i in 1:nrow(param))
 {
 	message(i, " of ", nrow(param))
 	dat <- make_system(param$nid[i], param$prev[i], param$h2phen[i], param$h2pred[i], param$vpred[i])
-	res <- do_test(dat)
-	param$pval_var[i] <- res[1]
-	param$pval_prs[i] <- res[2]
+	right <- do_test(dat)
+	left <- param[rep(i, nrow(right)), ]
+	res[[i]] <- cbind(left, right)
 }
 
-save(param, file="power_calc.rdata")
+res <- bind_rows(res)
+
+save(res, file="../results/power_calc.rdata")
 
