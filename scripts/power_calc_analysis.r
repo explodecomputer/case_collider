@@ -19,16 +19,16 @@ pow_var$lab3 <- paste0("r2_pred = ", pow_var$h2pred)
 pow_prs$lab3 <- paste0("r2_pred = ", pow_prs$h2pred)
 
 
-ggplot(pow_var, aes(x=as.factor(vpred), y=pow)) +
+p1 <- ggplot(pow_var, aes(x=as.factor(vpred), y=pow)) +
 geom_bar(stat="identity", aes(fill=as.factor(h2phen)), position="dodge") +
 facet_grid(lab2 ~ lab1) +
 labs(x="Variance explained by risk factor", y="Power (100 simulations, alpha=0.05)", fill="Variance explained\nby genetic score") +
 scale_fill_brewer()
 ggsave("../images/power_rf.pdf")
 
-ggplot(subset(pow_prs, ncase==50000), aes(x=as.factor(vpred), y=pow)) +
+p2 <- ggplot(subset(pow_prs, prev == 0.1), aes(x=as.factor(vpred), y=pow)) +
 geom_bar(stat="identity", aes(fill=as.factor(h2phen)), position="dodge") +
-facet_grid(lab3 ~ lab1) +
+facet_grid(lab2 ~ lab3) +
 labs(x="Variance explained by risk factor", y="Power (100 simulations, alpha=0.05)", fill="Variance explained\nby genetic score") +
 scale_fill_brewer()
 ggsave("../images/power_prs_of_rf.pdf")
