@@ -3,12 +3,12 @@ source("functions.r")
 #####
 
 param <- expand.grid(
-	sim = 1:100,
+	sim = 1:200,
 	ncase = c(1000, 10000, 50000),
 	prev = c(0.01, 0.1, 0.5),
-	h2phen = c(0.01, 0.1),
-	h2pred = c(0.01, 0.1),
-	vpred = c(0.01, 0.05)
+	h2phen = c(0.01, 0.03, 0.06, 0.1),
+	h2pred = c(0.01, 0.03, 0.06, 0.1),
+	vpred = c(0.01, 0.025, 0.05)
 )
 param$nid <- param$ncase / param$prev
 
